@@ -31,6 +31,14 @@ warnings.filterwarnings(
     ".*Converting mask without torch.bool dtype to bool*",
 )
 
+# The regex pattern below describes the the model weight
+# naming pattern.
+_CKPT_RE = re.compile(
+    r"^casanovo_([a-z0-9][a-z0-9-]*)_v([0-9]+)-([0-9]+)-([0-9]+)\.ckpt$"
+)
+# The default model is orbitrap.
+_DEFAULT_MODEL_ID = "orbitrap"
+
 import appdirs
 import github
 import requests
@@ -660,11 +668,12 @@ def setup_model(
     Parameters
     ----------
     model : str | None
-        May be a file system path, a URL pointing to a .ckpt file, or
-        None. If `model` is a URL the weights will be downloaded and
+        May be a file system path, a URL pointing to a .ckpt file, None,
+        or selector. If `model` is a URL the weights will be downloaded and
         cached from `model`. If `model` is `None` the weights from the
         latest matching official release will be used (downloaded and
-        cached).
+        cached). If `model` is a selector, the appropriate model
+        with the latest matching release will be used.
     config : str | None
         Config file path. If None the default config will be used.
     output_dir: : Path | str
