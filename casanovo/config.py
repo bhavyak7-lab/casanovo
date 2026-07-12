@@ -102,6 +102,7 @@ class Config:
         replace_isoleucine_with_leucine=bool,
         massivekb_tokenizer=bool,
         residues=dict,
+        new_token_init=dict,
     )
 
     def __init__(self, config_file: Optional[str] = None):
@@ -151,15 +152,6 @@ class Config:
             self.validate_param(key, val)
 
         self._params["n_workers"] = utils.n_workers()
-
-        if self._params["accelerator"] == "auto" and utils.is_apple_silicon():
-            self._params["accelerator"] = "cpu"
-            logger.warning(
-                "accelerator='auto' will be overwritten to 'cpu' on Apple Silicon"
-                " devices due to incompatibility with MPS accelerators.\n"
-                "Note: If you want to use a different accelerator (other than MPS),"
-                " please specify it explicitly in the config file."
-            )
 
     def __getitem__(self, param: str) -> Union[int, bool, str, Tuple, Dict]:
         """Retrieve a parameter."""

@@ -2,6 +2,7 @@ import functools
 import subprocess
 from pathlib import Path
 
+import pandas as pd
 import pyteomics.mztab
 import pytest
 import yaml
@@ -43,14 +44,14 @@ def test_train_and_run(
     ]
 
     result = run(train_args)
-    model_file = tmp_path / "train.epoch=19-step=20.ckpt"
+    model_file = tmp_path / "train.epoch=29-step=30.ckpt"
     best_model = tmp_path / "train.best.ckpt"
     assert result.exit_code == 0
     assert model_file.exists()
     assert best_model.exists()
 
     # Resume training from previous checkpoint.
-    with tiny_config.open("r") as f:
+    with tiny_config.open("r", encoding="utf-8") as f:
         config_data = yaml.safe_load(f)
     original_max_epochs = config_data.get("max_epochs")
 
@@ -60,8 +61,8 @@ def test_train_and_run(
             config_data["max_epochs"] = original_max_epochs + 10
         else:
             config_data["max_epochs"] = 10
-        with tiny_config.open("w") as f:
-            yaml.dump(config_data, f)
+        with tiny_config.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(config_data, f, sort_keys=False)
 
         train_args = [
             "train",
@@ -87,8 +88,8 @@ def test_train_and_run(
         else:
             config_data["max_epochs"] = original_max_epochs
 
-        with tiny_config.open("w") as f:
-            yaml.dump(config_data, f)
+        with tiny_config.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(config_data, f, sort_keys=False)
 
     # Run Casanovo in de novo prediction mode.
     output_rootname = "test"
@@ -108,6 +109,15 @@ def test_train_and_run(
     ]
 
     result = run(predict_args)
+    assert result.exit_code == 0
+    assert output_filename.is_file()
+
+    with pytest.raises(FileExistsError):
+        result = run(predict_args)
+
+    force_predict_args = predict_args.copy()
+    force_predict_args.insert(1, "--force_overwrite")
+    result = run(force_predict_args)
     assert result.exit_code == 0
     assert output_filename.is_file()
 
@@ -151,6 +161,15 @@ def test_train_and_run(
     ]
 
     result = run(eval_args)
+    assert result.exit_code == 0
+    assert output_filename.is_file()
+
+    with pytest.raises(FileExistsError):
+        result = run(eval_args)
+
+    force_eval_args = eval_args.copy()
+    force_eval_args.insert(1, "--force_overwrite")
+    result = run(force_eval_args)
     assert result.exit_code == 0
     assert output_filename.is_file()
 
@@ -200,6 +219,13 @@ def test_train_and_run(
     output_filename = (tmp_path / output_rootname).with_suffix(".mztab")
     output_db_file = (tmp_path / output_rootname).with_suffix(".tsv")
 
+    # Keep tokenizer settings compatible with the trained checkpoint.
+    with tiny_config_db.open("r", encoding="utf-8") as f:
+        db_config_data = yaml.safe_load(f)
+    db_config_data["replace_isoleucine_with_leucine"] = True
+    with tiny_config_db.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(db_config_data, f, sort_keys=False)
+
     search_args = [
         "db-search",
         "--model",
@@ -221,6 +247,15 @@ def test_train_and_run(
     assert output_filename.exists()
     assert output_db_file.exists()
 
+    with pytest.raises(FileExistsError):
+        result = run(search_args)
+
+    force_search_args = search_args.copy()
+    force_search_args.insert(1, "--force_overwrite")
+    result = run(force_search_args)
+    assert result.exit_code == 0
+    assert output_filename.is_file()
+
     # Verify that the output file is correct.
     mztab = pyteomics.mztab.MzTab(str(output_filename))
 
@@ -235,8 +270,8 @@ def test_train_and_run(
         "FSGSGSGTDFTLTISSLQPEDFAVYYCQQDYNLP",
     ]
 
-    mods = psms["modifications"].to_list()
-    assert mods == [
+    mods = psms["modifications"]
+    expected_mods = [
         None,
         "5-Carbamidomethyl (C):UNIMOD:4",
         None,
@@ -245,6 +280,11 @@ def test_train_and_run(
         None,
         "27-Carbamidomethyl (C):UNIMOD:4",
     ]
+    for actual, expected in zip(mods, expected_mods, strict=True):
+        if expected is None:
+            assert pd.isna(actual)
+        else:
+            assert actual == expected
 
     # Validate the mzTab output file.
     validate_args = [
@@ -287,7 +327,10 @@ def test_auxilliary_cli(tmp_path, mgf_small, monkeypatch):
     with pytest.raises(FileExistsError):
         run(["configure", "-o", "test.yaml"])
 
-    with open("casanovo.yaml") as f_in, open("small.yaml", "w") as f_out:
+    with (
+        open("casanovo.yaml", encoding="utf-8") as f_in,
+        open("small.yaml", "w", encoding="utf-8") as f_out,
+    ):
         config = yaml.safe_load(f_in)
         config["max_epochs"] = 1
         config["n_layers"] = 1

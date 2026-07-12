@@ -5,6 +5,7 @@ import functools
 import hashlib
 import heapq
 import io
+import logging
 import os
 import pathlib
 import platform
@@ -387,8 +388,9 @@ class MockRepo:
         self,
         release_dict={
             "v3.0.0": [
-                "casanovo_massivekb.ckpt",
-                "casanovo_non-enzy.checkpt",
+                "casanovo_orbitrap_v3-0-0.ckpt",
+                "casanovo_timstof_v3-0-0.ckpt",
+                "casanovo_non-enzy.ckpt",
                 "v3.0.0.zip",
                 "v3.0.0.tar.gz",
             ],
@@ -396,8 +398,9 @@ class MockRepo:
             "v3.2.0": ["v3.2.0.zip", "v3.2.0.tar.gz"],
             "v3.3.0": ["v3.3.0.zip", "v3.3.0.tar.gz"],
             "v4.0.0": [
-                "casanovo_massivekb.ckpt",
-                "casanovo_nontryptic.ckpt",
+                "casanovo_orbitrap_v4-0-0.ckpt",
+                "casanovo_timstof_v4-0-0.ckpt",
+                "casanovo_orbitrap-tmt_v4-0-0.ckpt",
                 "v4.0.0.zip",
                 "v4.0.0.tar.gz",
             ],
@@ -455,22 +458,33 @@ class MockResponseHead:
         return response
 
 
-def test_setup_model(monkeypatch):
+@pytest.mark.parametrize(
+    ("model_arg", "expected_filename"),
+    [
+        (None, "casanovo_orbitrap_v3-0-0.ckpt"),
+        ("timstof", "casanovo_timstof_v3-0-0.ckpt"),
+    ],
+)
+def test_setup_model(monkeypatch, model_arg, expected_filename):
     test_releases = ["3.0.0", "3.0.999", "3.999.999"]
     mock_get = MockResponseGet()
     mock_github = functools.partial(MockGithub, test_releases)
     version = "3.0.0"
 
-    # Test model is none when not training
-    with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         mnk.setattr(casanovo, "__version__", version)
         mnk.setattr("appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir)
         mnk.setattr(github, "Github", mock_github)
         mnk.setattr(requests, "get", mock_get)
-        filename = pathlib.Path(tmp_dir) / "casanovo_massivekb_v3_0_0.ckpt"
+        filename = pathlib.Path(tmp_dir) / expected_filename
 
         assert not filename.is_file()
-        _, result_path = casanovo.setup_model(None, None, None, None, False)
+        _, result_path = casanovo.setup_model(
+            model_arg, None, None, None, False
+        )
         assert result_path.resolve() == filename.resolve()
         assert filename.is_file()
         assert mock_get.request_counter == 1
@@ -482,7 +496,10 @@ def test_setup_model(monkeypatch):
         assert not filename.is_file()
         assert mock_get.request_counter == 1
 
-    with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         mnk.setattr(casanovo, "__version__", version)
         mnk.setattr("appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir)
         mnk.setattr(github, "Github", mock_github)
@@ -513,9 +530,11 @@ def test_setup_model(monkeypatch):
         assert mock_get.request_counter == 3
 
     # Test model is file
-    with monkeypatch.context() as mnk, tempfile.NamedTemporaryFile(
-        suffix=".ckpt"
-    ) as temp_file, tempfile.TemporaryDirectory() as tmp_dir:
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.NamedTemporaryFile(suffix=".ckpt") as temp_file,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         mnk.setattr(casanovo, "__version__", version)
         mnk.setattr("appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir)
         mnk.setattr(github, "Github", mock_github)
@@ -526,16 +545,19 @@ def test_setup_model(monkeypatch):
             temp_file_path, None, None, None, False
         )
         assert mock_get.request_counter == 3
-        assert result == temp_file_path
+        assert result == pathlib.Path(temp_file_path)
 
         _, result = casanovo.setup_model(
             temp_file_path, None, None, None, True
         )
         assert mock_get.request_counter == 3
-        assert result == temp_file_path
+        assert result == pathlib.Path(temp_file_path)
 
     # Test model is neither a URL or File
-    with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         mnk.setattr(casanovo, "__version__", version)
         mnk.setattr("appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir)
         mnk.setattr(github, "Github", mock_github)
@@ -552,19 +574,46 @@ def test_setup_model(monkeypatch):
         assert mock_get.request_counter == 3
 
 
-def test_get_model_weights(monkeypatch):
-    """
-    Test that model weights can be downloaded from GitHub or used from the
-    cache.
-    """
-    # Model weights for fully matching version, minor matching version, major
-    # matching version.
+@pytest.mark.parametrize("model_arg", [None, "timstof"])
+def test_rate_limit_exception(monkeypatch, model_arg):
+    def mock_get_model_weights(selector, cache_dir, casanovo_version):
+        raise github.RateLimitExceededException(403, "rate limit exceeded", {})
+
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
+        mnk.setattr(casanovo, "__version__", "3.0.0")
+        mnk.setattr("appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir)
+        mnk.setattr(casanovo, "_get_model_weights", mock_get_model_weights)
+
+        with pytest.raises(
+            PermissionError, match="GitHub API rate limit exceeded"
+        ):
+            casanovo.setup_model(model_arg, None, None, None, False)
+
+
+@pytest.mark.parametrize(
+    "selector, expected_filename",
+    [
+        ("orbitrap", "casanovo_orbitrap_v3-0-0.ckpt"),
+        ("timstof", "casanovo_timstof_v3-0-0.ckpt"),
+    ],
+)
+def test_get_model_weights(monkeypatch, selector, expected_filename):
     test_releases = ["3.0.0", "3.0.999", "3.999.999"]
     mock_get = MockResponseGet()
     mock_github = functools.partial(MockGithub, test_releases)
 
+    # Matching versions: exact, same minor, same major.
     for version in test_releases:
-        with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+        with (
+            monkeypatch.context() as mnk,
+            tempfile.TemporaryDirectory() as tmp_dir,
+        ):
+            version_tup = tuple(
+                int(x) if x else 0 for x in utils.split_version(version)
+            )
             mnk.setattr(casanovo, "__version__", version)
             mnk.setattr(
                 "appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir
@@ -573,23 +622,39 @@ def test_get_model_weights(monkeypatch):
             mnk.setattr(requests, "get", mock_get)
 
             tmp_path = pathlib.Path(tmp_dir)
-            filename = tmp_path / "casanovo_massivekb_v3_0_0.ckpt"
+            filename = tmp_path / expected_filename
             assert not filename.is_file()
-            result_path = casanovo._get_model_weights(tmp_path)
+            result_path = casanovo._get_model_weights(
+                selector, tmp_path, version_tup
+            )
             assert result_path == filename
             assert filename.is_file()
-            result_path = casanovo._get_model_weights(tmp_path)
+            # Second call should use cache, no extra download.
+            result_path = casanovo._get_model_weights(
+                selector, tmp_path, version_tup
+            )
             assert result_path == filename
 
     # Impossible to find model weights for (i) full version mismatch and (ii)
     # major version mismatch.
     for version in ["999.999.999", "999.0.0"]:
-        with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+        with (
+            monkeypatch.context() as mnk,
+            tempfile.TemporaryDirectory() as tmp_dir,
+        ):
+            version_tup = tuple(
+                int(x) if x else 0 for x in utils.split_version(version)
+            )
+
             mnk.setattr(casanovo, "__version__", version)
             mnk.setattr(github, "Github", mock_github)
             mnk.setattr(requests, "get", mock_get)
             with pytest.raises(ValueError):
-                casanovo._get_model_weights(pathlib.Path(tmp_dir))
+                casanovo._get_model_weights(
+                    selector,
+                    pathlib.Path(tmp_dir),
+                    version_tup,
+                )
 
     # Test GitHub API rate limit.
     def request(self, *args, **kwargs):
@@ -597,21 +662,107 @@ def test_get_model_weights(monkeypatch):
             403, "API rate limit exceeded", None
         )
 
-    with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         mnk.setattr("appdirs.user_cache_dir", lambda n, a, opinion: tmp_dir)
         mnk.setattr("github.Requester.Requester.requestJsonAndCheck", request)
         mnk.setattr(requests, "get", mock_get)
         mock_get.request_counter = 0
         with pytest.raises(github.RateLimitExceededException):
-            casanovo._get_model_weights(pathlib.Path(tmp_dir))
+            casanovo._get_model_weights(
+                selector, pathlib.Path(tmp_dir), (3, 0, 0)
+            )
 
         assert mock_get.request_counter == 0
+
+
+@pytest.mark.parametrize(
+    "selector, candidates, expected",
+    [
+        # Exact match
+        ("orbitrap", ["orbitrap", "timstof"], "orbitrap"),
+        ("timstof", ["orbitrap", "timstof"], "timstof"),
+        # Case-insensitive exact
+        ("Orbitrap", ["orbitrap", "timstof"], "orbitrap"),
+        ("TIMSTOF", ["orbitrap", "timstof"], "timstof"),
+        # Prefix match
+        ("tims", ["orbitrap", "timstof"], "timstof"),
+        ("orbit", ["orbitrap"], "orbitrap"),
+        # Substring match
+        ("tmt", ["orbitrap", "orbitrap-tmt"], "orbitrap-tmt"),
+        # Hyphen/separator stripped
+        ("orbitrap-tmt", ["orbitrap", "orbitrap-tmt"], "orbitrap-tmt"),
+    ],
+)
+def test_resolve_selector_success(selector, candidates, expected):
+    assert casanovo._resolve_selector(selector, candidates) == expected
+
+
+@pytest.mark.parametrize(
+    "selector, candidates",
+    [
+        # Ambiguous prefix
+        ("orbit", ["orbitrap", "orbitrap-tmt"]),
+        # Ambiguous substring
+        ("rap", ["orbitrap", "orbitrap-tmt"]),
+        # Unknown
+        ("xyz", ["orbitrap", "timstof"]),
+        ("foobar", ["orbitrap", "timstof"]),
+    ],
+)
+def test_resolve_selector_failure(selector, candidates):
+    with pytest.raises(ValueError):
+        casanovo._resolve_selector(selector, candidates)
+
+
+@pytest.mark.parametrize(
+    "filename, expected",
+    [
+        ("casanovo_orbitrap_v5-0-0.ckpt", ("orbitrap", (5, 0, 0))),
+        ("casanovo_timstof_v5-2-0.ckpt", ("timstof", (5, 2, 0))),
+        ("casanovo_orbitrap-tmt_v6-0-1.ckpt", ("orbitrap-tmt", (6, 0, 1))),
+        # Path prefix is stripped correctly
+        ("/some/dir/casanovo_orbitrap_v3-0-0.ckpt", ("orbitrap", (3, 0, 0))),
+        ("casanovo_Orbitrap_v3-0-0.ckpt", ("orbitrap", (3, 0, 0))),
+    ],
+)
+def test_parse_ckpt_valid(filename, expected):
+    assert casanovo._parse_ckpt(filename) == expected
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "casanovo_massivekb.ckpt",  # old format, no version
+        "casanovo_timstof.ckpt",  # old format, no version
+        "casanovo_non-enzy.checkpt",  # wrong extension
+        "casanovo__v3-0-0.ckpt",  # empty model ID
+        "casanovo_orbitrap_v3.0.0.ckpt",  # dots instead of dashes in version
+        "v3.0.0.zip",
+        "model.ckpt",
+    ],
+)
+def test_parse_ckpt_invalid(filename):
+    assert casanovo._parse_ckpt(filename) is None
+
+
+def test_best_ckpt_no_cross_family():
+    """Version resolution must never silently fall back across model families."""
+    # Caller is responsible for pre-filtering by family; _best_ckpt only
+    # sees one family's checkpoints. Confirm it returns None rather than
+    # picking something from a different family if the list is empty.
+    assert casanovo._best_ckpt([], (4, 3, 2)) is None
 
 
 def test_get_weights_from_url(monkeypatch):
     file_url = "http://example.com/model_weights.ckpt"
 
-    with monkeypatch.context() as mnk, tempfile.TemporaryDirectory() as tmp_dir:
+    with (
+        monkeypatch.context() as mnk,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         mock_get = MockResponseGet()
         mock_head = MockResponseHead()
         mnk.setattr(requests, "get", mock_get)
@@ -849,6 +1000,51 @@ def test_calc_match_score():
         [np.allclose(np.array([1.0, 1.0, 1.0]), x) for x in aa_scores[:4]]
     )
     assert np.allclose(np.array([1.0]), aa_scores[4])
+
+    # Reverse direction.
+    flipped_batch_all_aa_scores = torch.flip(batch_all_aa_scores, dims=[1])
+    flipped_true_aas = torch.flip(true_aas, dims=[1])
+    pep_scores_reversed, aa_scores_reversed = _calc_match_score(
+        flipped_batch_all_aa_scores, flipped_true_aas
+    )
+
+    assert all([pytest.approx(0.0) == x for x in pep_scores_reversed])
+    assert all(
+        [
+            np.allclose(np.array([0.0, 0.0, 0.0]), x)
+            for x in aa_scores_reversed[:4]
+        ]
+    )
+    assert np.allclose(np.array([0.0]), aa_scores_reversed[4])
+
+
+def test_peptide_generator_unknown_amino_acids(tmp_path):
+    valid_aa = set("ARNDCEQGHILKMFPSTWYV")
+    fasta_path = tmp_path / "tiny.fasta"
+    fasta_path.write_text(">foo\nME\n>corrupted\nMEX\n", encoding="utf-8")
+
+    non_specific = list(
+        db_utils._peptide_generator(
+            str(fasta_path), "N/A", "non-specific", 0, 1, 10, valid_aa
+        )
+    )
+    assert sorted(non_specific) == sorted(
+        [
+            ("M", "foo"),
+            ("ME", "foo"),
+            ("E", "foo"),
+            ("M", "corrupted"),
+            ("ME", "corrupted"),
+            ("E", "corrupted"),
+        ]
+    )
+
+    enzymatic = list(
+        db_utils._peptide_generator(
+            str(fasta_path), "trypsin", "full", 0, 1, 10, valid_aa
+        )
+    )
+    assert enzymatic == [("ME", "foo")]
 
 
 def test_digest_fasta_cleave(tiny_fasta_file):
@@ -1305,11 +1501,11 @@ def test_psm_batches(tiny_config):
 
     def mock_get_candidates(precursor_mz, precorsor_charge):
         if precorsor_charge == 1:
-            return pd.Series(peptides_one)
+            return pd.Index(peptides_one)
         elif precorsor_charge == 2:
-            return pd.Series(peptides_two)
+            return pd.Index(peptides_two)
         else:
-            return pd.Series()
+            return pd.Index([], dtype=str)
 
     tokenizer = depthcharge.tokenizers.peptides.PeptideTokenizer(
         residues=Config(tiny_config).residues
@@ -1399,9 +1595,9 @@ def test_db_stop_token(tiny_config):
 
     def mock_get_candidates(precursor_mz, precorsor_charge):
         if precorsor_charge == 1:
-            return pd.Series(peptides_one)
+            return pd.Index(peptides_one)
         else:
-            return pd.Series(peptides_two)
+            return pd.Index(peptides_two)
 
     tokenizer = depthcharge.tokenizers.peptides.PeptideTokenizer(
         residues=Config(tiny_config).residues
@@ -1438,8 +1634,8 @@ def test_isoleucine_match(tiny_config):
     db_model = DbSpec2Pep(tokenizer=tokenizer)
     peptides = [["PEPTLDEK"], ["PEPTIDEK"]]
 
-    def mock_get_candidates(_, precursor_charge) -> pd.Series:
-        return pd.Series(peptides[precursor_charge - 1])
+    def mock_get_candidates(_, precursor_charge) -> pd.Index:
+        return pd.Index(peptides[precursor_charge - 1])
 
     db_model = DbSpec2Pep(tokenizer=tokenizer)
     db_model.protein_database = unittest.mock.MagicMock()
@@ -1661,6 +1857,59 @@ def test_get_candidates_isotope_error(tiny_fasta_file):
     assert expected_isotope0123 == list(candidates)
 
 
+def test_ptm_warning(tiny_fasta_file, caplog):
+    """Test that a warning is issued for unconfigured modified residues"""
+    import logging
+
+    # Use a tokenizer with modified residues
+    with caplog.at_level(logging.WARNING):
+        db_utils.ProteinDatabase(
+            fasta_path=str(tiny_fasta_file),
+            enzyme="trypsin",
+            digestion="full",
+            missed_cleavages=0,
+            min_peptide_len=6,
+            max_peptide_len=50,
+            max_mods=0,
+            precursor_tolerance=20,
+            isotope_error=[0, 0],
+            allowed_fixed_mods="C:C[Carbamidomethyl]",
+            allowed_var_mods="nterm:[Acetyl]-",
+            tokenizer=depthcharge.tokenizers.PeptideTokenizer.from_massivekb(),
+        )
+    assert any(
+        "is not specified as a fixed or variable modification"
+        in record.message
+        for record in caplog.records
+    )
+
+
+def test_psm_batches_empty_candidates(tiny_config):
+    """Test that _psm_batches returns nothing when no candidates exist."""
+    tokenizer = depthcharge.tokenizers.peptides.PeptideTokenizer(
+        residues=Config(tiny_config).residues
+    )
+    db_model = DbSpec2Pep(tokenizer=tokenizer)
+    db_model.protein_database = unittest.mock.MagicMock()
+    db_model.protein_database.get_candidates = lambda mz, charge: pd.Index(
+        [], dtype=str
+    )
+
+    mock_batch = {
+        "precursor_mz": torch.Tensor([42.0]),
+        "precursor_charge": torch.Tensor([2]),
+        "peak_file": ["test.mgf"],
+        "scan_id": [1],
+    }
+    fake_cache = {
+        "memory": torch.zeros(1, 1, 1),
+        "mem_masks": torch.ones(1, 1, dtype=torch.bool),
+        "precursors_all": torch.zeros(1, 3),
+    }
+    batches = list(db_model._psm_batches(mock_batch, enc_cache=fake_cache))
+    assert len(batches) == 0
+
+
 def test_n_term_scores(tiny_config):
     out_writer = unittest.mock.MagicMock()
     out_writer.psms = list()
@@ -1827,11 +2076,8 @@ def test_spectrum_id_mgf(mgf_small, tmp_path):
     )
     data_module.setup()
 
-    for dataset in [
-        data_module.train_dataset,
-        data_module.valid_dataset,
-        data_module.test_dataset,
-    ]:
+    # train/test combine both files into one dataset (4 spectra total).
+    for dataset in [data_module.train_dataset, data_module.test_dataset]:
         for i, (filename, scan_id) in enumerate(
             [
                 (mgf_small, "0"),
@@ -1842,6 +2088,63 @@ def test_spectrum_id_mgf(mgf_small, tmp_path):
         ):
             assert dataset[i]["peak_file"][0] == filename.name
             assert dataset[i]["scan_id"][0] == f"index={scan_id}"
+
+    # Validation is now per-file; each dataset has 2 spectra from its file.
+    assert len(data_module.valid_datasets) == 2
+    for i, filename in enumerate([mgf_small, mgf_small2]):
+        vds = data_module.valid_datasets[i]
+        assert vds[0]["peak_file"][0] == filename.name
+        assert vds[0]["scan_id"][0] == "index=0"
+        assert vds[1]["peak_file"][0] == filename.name
+        assert vds[1]["scan_id"][0] == "index=1"
+
+
+def test_log_training_set_size(mgf_small, tmp_path, caplog):
+    """Test that the number of training and validation spectra is logged."""
+    mgf_small2 = tmp_path / "mgf_small2.mgf"
+    shutil.copy(mgf_small, mgf_small2)
+    data_module = DeNovoDataModule(
+        lance_dir=tmp_path.name,
+        train_paths=[mgf_small, mgf_small2],
+        valid_paths=[mgf_small],
+        min_peaks=0,
+        shuffle=False,
+    )
+    with caplog.at_level(logging.INFO, logger="casanovo"):
+        data_module.setup()
+
+    assert any(
+        msg == "Training dataset contains 4 spectra."
+        for msg in caplog.messages
+    )
+    assert any(
+        msg == "Validation dataset contains 2 spectra."
+        for msg in caplog.messages
+    )
+
+
+def test_log_training_set_size_shuffled(mgf_small, tmp_path, caplog):
+    """Test spectra count logging when shuffle=True (ShufflerIterDataPipe)."""
+    mgf_small2 = tmp_path / "mgf_small2.mgf"
+    shutil.copy(mgf_small, mgf_small2)
+    data_module = DeNovoDataModule(
+        lance_dir=tmp_path.name,
+        train_paths=[mgf_small, mgf_small2],
+        valid_paths=[mgf_small],
+        min_peaks=0,
+        shuffle=True,
+    )
+    with caplog.at_level(logging.INFO, logger="casanovo"):
+        data_module.setup()
+
+    assert any(
+        msg == "Training dataset contains 4 spectra."
+        for msg in caplog.messages
+    )
+    assert any(
+        msg == "Validation dataset contains 2 spectra."
+        for msg in caplog.messages
+    )
 
 
 def test_spectrum_id_mzml(mzml_small, tmp_path):
@@ -1890,7 +2193,8 @@ def test_train_val_step_functions():
     val_batch = copy.deepcopy(train_batch)
 
     train_step_loss = model.training_step(train_batch)
-    val_step_loss = model.validation_step(val_batch)
+    with unittest.mock.patch.object(model, "log"):
+        val_step_loss = model.validation_step(val_batch, 0)
 
     # Check if valid loss value returned
     assert train_step_loss > 0
@@ -1908,6 +2212,18 @@ def test_run_map(mgf_small):
     out_writer.set_ms_run([os.path.basename(mgf_small.name)])
     assert mgf_small.name in out_writer._run_map
     assert os.path.abspath(mgf_small.name) not in out_writer._run_map
+
+
+def test_set_database(tmp_path):
+    """Test that set_database populates PSM database columns."""
+    fasta = tmp_path / "test.fasta"
+    fasta.touch()
+    out_writer = ms_io.MztabWriter(str(tmp_path / "test.mztab"))
+    assert out_writer.database == "null"
+    assert out_writer.database_version == "null"
+    out_writer.set_database(str(fasta))
+    assert out_writer.database == "test"
+    assert out_writer.database_version == "null"
 
 
 def test_get_mod_string():
@@ -2770,3 +3086,93 @@ def test_mixed_mgf_mzml_scan_number_column(mzml_small, tmp_path):
     # mzML row must be null.
     mzml_row = psms[psms["spectra_ref"].str.contains("scan=17")].iloc[0]
     assert pd.isna(mzml_row["opt_global_cv_MS:1003057_scan_number"])
+
+
+def test_data_module_per_file_validation(mgf_small, tmp_path):
+    """DeNovoDataModule creates one dataset per validation/tracking file."""
+    mgf_small2 = tmp_path / "mgf_small2.mgf"
+    shutil.copy(mgf_small, mgf_small2)
+    data_module = DeNovoDataModule(
+        lance_dir=tmp_path.name,
+        valid_paths=[mgf_small, mgf_small2],
+        tracking_paths=[mgf_small],
+        min_peaks=0,
+        shuffle=False,
+    )
+    data_module.setup()
+
+    assert len(data_module.valid_datasets) == 2
+    assert len(data_module.tracking_datasets) == 1
+    assert data_module.n_main_loaders == 2
+    assert data_module.val_stems == [
+        mgf_small.stem,
+        mgf_small2.stem,
+        f"{mgf_small.stem}_1",
+    ]
+    loaders = data_module.val_dataloader()
+    assert len(loaders) == 3
+
+
+def test_validation_step_logs_per_file():
+    """validation_step logs per-file CELoss; aggregate only for main loaders."""
+    tokenizer = depthcharge.tokenizers.peptides.MskbPeptideTokenizer()
+    model = Spec2Pep(
+        n_beams=1,
+        residues="massivekb",
+        min_peptide_len=4,
+        tokenizer=tokenizer,
+    )
+    model.val_stems = ["a", "b"]
+    model.n_main_loaders = 1
+
+    batch = {
+        "mz_array": torch.zeros(1, 5),
+        "intensity_array": torch.zeros(1, 5),
+        "precursor_mz": torch.tensor(235.63410),
+        "precursor_charge": torch.tensor(2),
+        "seq": tokenizer.tokenize(["PEPK"]),
+    }
+
+    # dataloader_idx=0 is a main loader: logs per-file AND aggregate.
+    with unittest.mock.patch.object(model, "log") as mock_log:
+        model.validation_step(batch, 0, dataloader_idx=0)
+    logged = {c.args[0]: c.kwargs for c in mock_log.call_args_list}
+    assert "valid_CELoss/a" in logged
+    assert "valid_CELoss" in logged
+    assert logged["valid_CELoss/a"]["add_dataloader_idx"] is False
+    assert logged["valid_CELoss"]["add_dataloader_idx"] is False
+
+    # dataloader_idx=1 is a tracking loader: logs per-file only.
+    with unittest.mock.patch.object(model, "log") as mock_log:
+        model.validation_step(batch, 0, dataloader_idx=1)
+    logged = {c.args[0]: c.kwargs for c in mock_log.call_args_list}
+    assert "valid_CELoss/b" in logged
+    assert "valid_CELoss" not in logged
+
+
+def test_train_cli_tracking_peak_path(tmp_path, mgf_small, monkeypatch):
+    """-t/--tracking_peak_path CLI option is forwarded to ModelRunner.train()."""
+    from casanovo.denovo.model_runner import ModelRunner as _ModelRunner
+
+    captured = {}
+
+    def fake_train(self, train_pp, valid_pp, ckpt=None, tracking_pp=()):
+        captured["tracking"] = tracking_pp
+
+    monkeypatch.setattr(_ModelRunner, "train", fake_train)
+    monkeypatch.setattr(casanovo, "_is_valid_model", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        casanovo, "_setup_output", lambda *a, **kw: (tmp_path, "out")
+    )
+    monkeypatch.setattr(
+        casanovo, "setup_model", lambda *a, **kw: (Config(), None)
+    )
+    monkeypatch.setattr(utils, "log_system_info", lambda: None)
+    monkeypatch.setattr(utils, "log_run_report", lambda **kw: None)
+
+    result = click.testing.CliRunner().invoke(
+        casanovo.main,
+        ["train", "-t", str(mgf_small), str(mgf_small)],
+    )
+    assert result.exit_code == 0, result.output
+    assert str(mgf_small) in captured.get("tracking", ())

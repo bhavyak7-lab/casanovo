@@ -36,6 +36,10 @@ These weights define the functionality of the Casanovo neural network.
 
 If no input weights file is provided, Casanovo will automatically use the most recent compatible weights from the [official Casanovo GitHub repository](https://github.com/Noble-Lab/casanovo), which will be downloaded and cached locally if they are not already.
 Model weights are retrieved by matching Casanovo release version, which is of the form (major, minor, patch).
+Casanovo supports models optimized for different instrument types. 
+The default model is ``orbitrap``, and other models can be specified with ``--model timstof`` (only other model currently supported). 
+The model selector matching is done case-insensitively and separators are ignored (e.g., ``Orbitrap``, ``orbitrap``, and ``orbi-trap`` all resolve to the ``orbitrap`` model). 
+Partial names are accepted as long as they match exactly one model (e.g., ``tims`` would resolve to ``timstof``).
 If no model weights for an identical release are available, alternative releases with matching (i) major and minor, or (ii) major versions will be used.
 
 Alternatively, you can input custom model weights in the form of a local file system path or a URL pointing to a compatible Casanovo model weights file.
@@ -44,7 +48,7 @@ See the [command line interface documentation](cli.rst) for more details.
 
 ## Output: Understanding the mzTab format
 
-After Casanovo processes your input file(s), it provides the results in an **[mzTab]((https://doi.org/10.1074/mcp.O113.036681))** file.
+After Casanovo processes your input file(s), it provides the results in an **[mzTab](https://doi.org/10.1074/mcp.O113.036681)** file.
 This file is divided into two main sections:
 
 1. **Metadata section**: This part describes general information about the file and the Casanovo task.
@@ -116,13 +120,13 @@ MTD	software[1]-setting[7]	predict_batch_size = 1024
 MTD	software[1]-setting[8]	top_match = 1
 MTD	software[1]-setting[9]	accelerator = auto
 MTD	software[1]-setting[10]	devices = None
-MTD	software[1]-setting[11]	n_beams = 10
+MTD	software[1]-setting[11]	n_beams = 1
 MTD	software[1]-setting[12]	enzyme = trypsin
 MTD	software[1]-setting[13]	digestion = full
 MTD	software[1]-setting[14]	missed_cleavages = 0
 MTD	software[1]-setting[15]	max_mods = 1
-MTD	software[1]-setting[16]	allowed_fixed_mods = C:C+57.021
-MTD	software[1]-setting[17]	allowed_var_mods = M:M+15.995,N:N+0.984,Q:Q+0.984,nterm:+42.011,nterm:+43.006,nterm:-17.027,nterm:+43.006-17.027
+MTD	software[1]-setting[16]	allowed_fixed_mods = C:C[Carbamidomethyl]
+MTD	software[1]-setting[17]	allowed_var_mods = M:M[Oxidation],N:N[Deamidated],Q:Q[Deamidated],nterm:[Acetyl]-,nterm:[Carbamyl]-,nterm:[Ammonia-loss]-,nterm:[+25.980265]-
 MTD	software[1]-setting[18]	random_seed = 454
 MTD	software[1]-setting[19]	n_log = 1
 MTD	software[1]-setting[20]	tb_summarywriter = False
@@ -134,7 +138,7 @@ MTD	software[1]-setting[25]	min_mz = 50.0
 MTD	software[1]-setting[26]	max_mz = 2500.0
 MTD	software[1]-setting[27]	min_intensity = 0.01
 MTD	software[1]-setting[28]	remove_precursor_tol = 2.0
-MTD	software[1]-setting[29]	max_charge = 10
+MTD	software[1]-setting[29]	max_charge = 4
 MTD	software[1]-setting[30]	dim_model = 512
 MTD	software[1]-setting[31]	n_head = 8
 MTD	software[1]-setting[32]	dim_feedforward = 1024
@@ -290,6 +294,9 @@ END IONS
 ```{note}
 In case the peptide sequence includes PTMs, ensure that these are formatted correctly and match the amino acid and modification vocabulary in the Casanovo configuration.
 ```
+
+When fine-tuning a pre-trained model with new PTMs, the `new_token_init` option in the [configuration file](https://github.com/Noble-Lab/casanovo/blob/main/casanovo/config.yaml) must map each new token to an existing one for weight initialization.
+See the [FAQ](faq.md#how-do-i-fine-tune-casanovo-on-data-with-new-ptms) for the complete fine-tuning workflow.
 
 mzML or mzXML files are not supported as input during training, as these formats do not provide a mechanism to annotate their spectra with peptide sequences.
 Similarly, in Casanovo evaluation mode only annotated MGF files are supported.
