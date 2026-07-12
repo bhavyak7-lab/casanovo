@@ -20,6 +20,21 @@ def test_default(monkeypatch):
     assert config.file == "default"
 
 
+def test_timstof():
+    config = Config("timstof")
+    assert config.random_seed == 454
+    assert config._config_file.name == "config_timstof.yaml"
+    assert config.file == "timstof"
+
+    config = Config("tims")
+    assert config.random_seed == 454
+    assert config._config_file.name == "config_timstof.yaml"
+    assert config.file == "tims"
+
+    with pytest.raises(FileNotFoundError, match="Unknown config"):
+        Config("zzz")
+
+
 def test_override(tmp_path, tiny_config):
     # Test expected config option is missing.
     filename = str(tmp_path / "config_missing.yml")

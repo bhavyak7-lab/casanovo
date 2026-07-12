@@ -114,7 +114,9 @@ class Config:
     def __init__(self, config_file: Optional[str] = None):
         """Initialize a Config object."""
         self.file = str(config_file) if config_file is not None else "default"
-        with self._default_config.open() as f_in:
+        self._config_file = self._resolve_config_file(config_file)
+
+        with self._builtin_configs[self._default_config_key].open() as f_in:
             self._params = yaml.safe_load(f_in)
 
         if config_file is None:
@@ -123,7 +125,7 @@ class Config:
             if not Path(config_file).is_file():
                 config_file = self._resolve_config(config_file)
 
-            with Path(config_file).open() as f_in:
+            with Path(self._config_file).open() as f_in:
                 self._user_config = yaml.safe_load(f_in)
                 # Remap deprecated config entries.
                 for old, new in _config_deprecated.items():
@@ -170,6 +172,46 @@ class Config:
                 "Note: If you want to use a different accelerator (other than MPS),"
                 " please specify it explicitly in the config file."
             )
+
+    def _resolve_config_file(self, config_file: Optional[str]) -> Path:
+        if config_file is None:
+            warnings.warn(
+                f"No configuration specified; using default '{self._default_config_key}'.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return self._builtin_configs[self._default_config_key]
+
+        config_path = Path(config_file)
+        if config_path.is_file() and config_path.exists():
+            return config_path
+
+        key = str(config_file).lower()
+        key = (
+            key.replace("config_", "").replace(".yaml", "").replace(".yml", "")
+        )
+        builtins = self._builtin_configs
+
+        if key in builtins:
+            return builtins[key]
+
+        matches = [
+            (name, path) for name, path in builtins.items() if key in name
+        ]
+
+        if len(matches) == 1:
+            return matches[0][1]
+
+        if len(matches) > 1:
+            raise ValueError(
+                f"Ambiguous config '{config_file}'. "
+                f"Matches: {[m[0] for m in matches]}"
+            )
+
+        raise FileNotFoundError(
+            f"Unknown config '{config_file}'. "
+            f"Valid options: {list(builtins.keys())}"
+        )
 
     def __getitem__(self, param: str) -> Union[int, bool, str, Tuple, Dict]:
         """Retrieve a parameter."""
