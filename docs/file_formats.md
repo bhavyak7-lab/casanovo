@@ -46,7 +46,7 @@ Alternatively, you can input custom model weights in the form of a local file sy
 If a URL is provided, the upstream weights file will be downloaded and cached locally for later use.
 See the [command line interface documentation](cli.rst) for more details.
 
-## Input File Formates for Cascadia 
+## Input File Formats for Cascadia 
 
 ### MS/MS Spectra and Other File Types
 
@@ -59,7 +59,7 @@ When you are ready to use Cascadia, you can input your MS/MS spectra in the mzML
 After Casanovo/Cascadia processes your input file(s), it provides the results in an **[mzTab](https://doi.org/10.1074/mcp.O113.036681)** file.
 This file is divided into two main sections:
 
-1. **Metadata section**: This part describes general information about the file and the Casanovo/Cascada task.
+1. **Metadata section**: This part describes general information about the file and the Casanovo/Cascadia task.
 2. **Peptide–spectrum match (PSM) section**: Details of the peptide sequences that Casanovo/Cascadia predicted for the MS/MS spectra.
 
 mzTab files can contain additional sections to include protein identifications and quantification information as well.
@@ -320,8 +320,8 @@ Model checkpoints will be saved to the folder specified by the `--output_dir` co
 
 ## For Advanced Users: Training Cascadia 
 
-To train a new Cascadia model, the sequence and charge annotations must be provided in a **tsv file with retention time and precursor m/z**. 
-The sequence and charge annotations will be matched to the augmented spectra based on retention time and precursor m/z in the **tsv file**. 
+To train a new Cascadia model, the sequence and charge annotations must be provided in a **tsv file with retention time, precursor m/z, and file name**. 
+The sequence and charge annotations will be matched to the augmented spectra based on retention time, precursor m/z, and file name. 
 
-During training, Casanovo will save **checkpoint files** at every `val_check_interval` steps, specified in the configuration.
+During training, Cascadia will save **checkpoint files** at every `val_check_interval` steps, specified in the configuration.
 Model checkpoints will be saved to the folder specified by the `--output_dir` command line option with filename format `epoch=EPOCH-step=STEP.ckpt`, with `EPOCH` the epoch and `STEP` the training step at which the checkpoint was taken, helping you track progress and select the best model based on validation performance.

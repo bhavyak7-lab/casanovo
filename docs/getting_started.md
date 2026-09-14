@@ -91,7 +91,7 @@ cascadia configure
 
 ![`cascadia configure --help`](images/configure-help.svg)
 
-Since the Casanovo and Cascadia config files are shared, both commmands above will produce the same output. 
+Since the Casanovo and Cascadia config files are shared, both commands above will produce the same output. 
 
 ### Download Model Weights
 
@@ -232,7 +232,7 @@ Let's use Cascadia to sequence peptides from a small collection of mass spectra 
 The example mzML file is available at [`sample_data/sample_preprocessed_spectra.mzML`](https://github.com/Noble-Lab/casanovo/blob/main/sample_data/sample_preprocessed_spectra.mzML).
 
 To obtain *de novo* sequencing predictions for these spectra:
-1. Download the example MGF above.
+1. Download the example mzML above.
 2. [Install Casanovo](#installation).
 3. Ensure your Casanovo Conda environment is activated by typing `conda activate casanovo_env`. (If you named your environment differently, type in that name instead.)
 4. Sequence the mass spectra with Cascadia, replacing `[PATH_TO]` with the path to the example mzML file that you downloaded:
