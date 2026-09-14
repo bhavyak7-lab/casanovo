@@ -47,6 +47,8 @@ click.rich_click.USE_MARKDOWN = True
 click.rich_click.STYLE_HELPTEXT = ""
 click.rich_click.SHOW_ARGUMENTS = True
 
+_MODEL_WEIGHT_REQUEST_TIMEOUT = 30
+
 
 class _SharedFileIOParams(click.RichCommand):
     """File IO options shared between most Casanovo commands"""
@@ -204,7 +206,10 @@ def sequence(
         results_path = output_path / f"{output_root_name}.mztab"
         runner.predict(peak_path, str(results_path), evaluate=evaluate)
         utils.log_annotate_report(
-            runner.writer.psms, start_time=start_time, end_time=time.time()
+            runner.writer.psms,
+            start_time=start_time,
+            end_time=time.time(),
+            n_missing_predictions=runner.model.n_missing_predictions,
         )
 
 
@@ -284,7 +289,10 @@ def db_search(
                 )
             runner.model.protein_database.export(output_path, output_root_name)
         utils.log_annotate_report(
-            runner.writer.psms, start_time=start_time, end_time=time.time()
+            runner.writer.psms,
+            start_time=start_time,
+            end_time=time.time(),
+            n_missing_predictions=runner.model.n_missing_predictions,
         )
 
 
@@ -953,7 +961,9 @@ def _get_weights_from_url(
         url_last_modified = 0
 
         try:
-            file_response = requests.head(file_url)
+            file_response = requests.head(
+                file_url, timeout=_MODEL_WEIGHT_REQUEST_TIMEOUT
+            )
             if file_response.ok:
                 if "Last-Modified" in file_response.headers:
                     url_last_modified = datetime.datetime.strptime(
@@ -1005,7 +1015,12 @@ def _download_weights(file_url: str, download_path: Path) -> None:
     """
     download_file_dir = download_path.parent
     os.makedirs(download_file_dir, exist_ok=True)
-    response = requests.get(file_url, stream=True, allow_redirects=True)
+    response = requests.get(
+        file_url,
+        stream=True,
+        allow_redirects=True,
+        timeout=_MODEL_WEIGHT_REQUEST_TIMEOUT,
+    )
     response.raise_for_status()
     file_size = int(response.headers.get("Content-Length", 0))
     desc = "(Unknown total file size)" if file_size == 0 else ""

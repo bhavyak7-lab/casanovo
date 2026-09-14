@@ -179,6 +179,8 @@ def log_annotate_report(
     start_time: Optional[float] = None,
     end_time: Optional[float] = None,
     score_bins: Iterable[float] = SCORE_BINS,
+    *,
+    n_missing_predictions: int = 0,
 ) -> None:
     """
     Log run annotation report.
@@ -193,6 +195,9 @@ def log_annotate_report(
         The end time of the sequencing run in seconds since the epoch.
     score_bins: Iterable[float], Optional
         Confidence scores for creating confidence score distribution.
+    n_missing_predictions : int, default=0
+        The number of spectra that did not receive a prediction because
+        beam search did not return a valid peptide.
     """
     log_run_report(start_time=start_time, end_time=end_time)
     run_report = _get_report_dict(
@@ -231,6 +236,13 @@ def log_annotate_report(
             "Median Peptide Length: %d", run_report["median_sequence_length"]
         )
 
+    if n_missing_predictions > 0:
+        logger.info(
+            "%d spectra did not receive a prediction because beam search "
+            "did not return a valid peptide",
+            n_missing_predictions,
+        )
+
 
 def check_dir_file_exists(
     dir: pathlib.Path, file_patterns: Iterable[str] | str
@@ -259,15 +271,3 @@ def check_dir_file_exists(
                 f"File matching wildcard pattern {pattern} already exist in "
                 f"{dir} and can not be overwritten."
             )
-
-
-def is_apple_silicon() -> bool:
-    """
-    Check whether the current device is Apple Silicon.
-
-    Returns
-    -------
-    bool
-        Whether the current device is Apple Silicon.
-    """
-    return platform.system() == "Darwin" and platform.machine() == "arm64"
