@@ -2,8 +2,8 @@
 
 ## Installation
 
-We recommend to run Casanovo in a dedicated [Conda environment](https://docs.conda.io/en/latest/).
-This helps keep your environment for Casanovo and its dependencies separate from your other Python environments.
+We recommend to run Casanovo/Cascadia in a dedicated [Conda environment](https://docs.conda.io/en/latest/).
+This helps keep your environment for Casanovo/Cascadia and its dependencies separate from your other Python environments.
 
 ```{Note}
 Don't know what conda is?
@@ -66,6 +66,12 @@ casanovo --help
 
 ![`casanovo --help`](images/help.svg)
 
+Cascadia has also been installed with the Casanovo Python package, test that it was successful by viewing the Cascadia command line interface help: 
+```sh
+cascadia --help
+```
+
+![`cascadia --help`](images/help.svg)
 
 All auxiliary data, model, and training-related parameters can be specified in a YAML configuration file. 
 To generate a YAML file containing the current Casanovo defaults, run:
