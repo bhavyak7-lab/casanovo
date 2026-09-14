@@ -84,21 +84,30 @@ casanovo configure
 When using Casanovo to sequence peptides from mass spectra or evaluate a previous model's performance, you can change some of the parameters in the first section of this file.
 Parameters in the second section will not have an effect unless you are training a new Casanovo model.
 
+To generate a YAML file containing the current Cascadia defaults, run:
+```sh
+cascadia configure
+```
+
+![`cascadia configure --help`](images/configure-help.svg)
+
+Since the Casanovo and Cascadia config files are shared, both commmands above will produce the same output. 
+
 ### Download Model Weights
 
-Using Casanovo to sequence peptides from new mass spectra, Casanovo needs compatible pretrained model weights to make its predictions.
-By default, Casanovo first checks for compatible cached weights before attempting to download from GitHub.
+Using Casanovo/Cascadia to sequence peptides from new mass spectra, Casanovo/Cascadia needs compatible pretrained model weights to make its predictions.
+By default, Casanovo/Cascadia first checks for compatible cached weights before attempting to download from GitHub.
 Weights are cached in `~/.cache/casanovo/` on Linux, `~/Library/Caches/casanovo/` on macOS, and a platform-specific user cache directory on Windows (typically under `%LOCALAPPDATA%\casanovo\`).
-If no compatible weights are found in the cache, then Casanovo downloads them from GitHub, matching first on exact version (major, minor, patch), then falling back to major+minor, and finally to major version only.
-If a cached file becomes corrupted, delete it from the cache directory and Casanovo will re-download it on the next run.
+If no compatible weights are found in the cache, then Casanovo/Cascadia downloads them from GitHub, matching first the model type (Casanovo or Cascadia) then on exact version (major, minor, patch), then falling back to major+minor, and finally to major version only.
+If a cached file becomes corrupted, delete it from the cache directory and Casanovo/Cascadia will re-download it on the next run.
 
 ```{note}
 The GitHub API used for auto-download is rate-limited to 60 requests per IP per hour.
 If you hit this limit, download the weights manually from the [Releases page](https://github.com/Noble-Lab/casanovo/releases) and specify the file with `--model`.
 ```
 
-Our model weights are uploaded with new Casanovo versions on the [Releases page](https://github.com/Noble-Lab/casanovo/releases) under the "Assets" for each release (file extension: `.ckpt`).
-This model file or a custom one can then be specified using the `--model` command-line parameter when executing Casanovo.
+Our model weights are uploaded with new Casanovo/Cascadia versions on the [Releases page](https://github.com/Noble-Lab/casanovo/releases) under the "Assets" for each release (file extension: `.ckpt`).
+This model file or a custom one can then be specified using the `--model` command-line parameter when executing Casanovo/Cascadia.
 
 Not all releases will have a model file included on the [Releases page](https://github.com/Noble-Lab/casanovo/releases), in which case model weights for alternative releases with the same major version number can be used.
 
@@ -129,6 +138,13 @@ top_match: 5
 ```
 
 Each candidate will appear as a separate row in the mzTab output, distinguished by the `PSM_ID` field.
+
+To sequence spectra with Cascadia run: 
+```sh
+cascadia sequence spectra.mgf
+```
+
+![`cascadia --help`](images/sequence-help.svg)
 
 ### Evaluate *De Novo* Sequencing Performance
 
@@ -162,7 +178,7 @@ This will write PSM scores for the given MS/MS spectra and FASTA file to the spe
 Database searching is an *experimental feature* that may run very slowly for large protein databases.
 ```
 
-### Train a new model
+### Train a new model (Casanovo)
 
 To train a model from scratch, run:
 
@@ -175,6 +191,18 @@ Training and validation MS/MS data need to be provided as annotated MGF files, w
 
 If a training is continued for a previously trained model, specify the starting model weights using `--model`.
 To fine-tune an existing model with new post-translational modifications, additional configuration is required; see the [FAQ](faq.md#how-do-i-fine-tune-casanovo-on-data-with-new-ptms) for a detailed guide.
+
+### Train a new model (Cascadia) 
+
+To train a new model from scratch, run: 
+```sh
+cascadia train training_spectra.mzML --annotations annotations.tsv --validation_peak_path validation_spectra.mzML
+```
+![`cascadia train --help`](images/train-help.svg)
+
+Training and validation MS/MS data need to be provided as mzML files. 
+The sequence and charge annotations for the spectra must be provided in a tsv file with columns: `retention_time, precursor_mz, charge, sequence, file`. 
+The spectra will be matched to an annotation based on the  `retention_time` and `precursor_mz`, and match based on `file`.
 
 ## Try Casanovo On a Small Example
 
@@ -198,6 +226,28 @@ This job should complete in < 1 minute.
 
 Congratulations! Casanovo is installed and running in *de novo* mode.
 
+## Try Cascadia On a Small Example 
+
+Let's use Cascadia to sequence peptides from a small collection of mass spectra in an mzML file (~12 MS spectra).
+The example mzML file is available at [`sample_data/sample_preprocessed_spectra.mzML`](https://github.com/Noble-Lab/casanovo/blob/main/sample_data/sample_preprocessed_spectra.mzML).
+
+To obtain *de novo* sequencing predictions for these spectra:
+1. Download the example MGF above.
+2. [Install Casanovo](#installation).
+3. Ensure your Casanovo Conda environment is activated by typing `conda activate casanovo_env`. (If you named your environment differently, type in that name instead.)
+4. Sequence the mass spectra with Cascadia, replacing `[PATH_TO]` with the path to the example mzML file that you downloaded:
+```sh
+cascadia sequence [PATH_TO]/sample_preprocessed_spectra.mzML
+```
+
+```{note}
+If you want to store the output mzTab file in a different location than the current working directory, specify an alternative output location using the `--output_dir` parameter.
+```
+
+This job should complete in < 1 minute.
+
+Congratulations! Cascadia is installed and running in *de novo* mode.
+
 ## Try database searching on a small example
 
 We can also use Casanovo to perform database searching with the same MGF from above and a FASTA file.
@@ -217,7 +267,9 @@ This job should complete in < 1 minute.
 
 Congratulations! Casanovo is installed and running in database searching mode.
 
-### Advanced: Train a new model
+**Database search is not currently supported with Cascadia**
+
+### Advanced: Train a new model (Casanovo)
 
 Most users of Casanovo will not need to train their own models.
 However, if you have a large collection of annotated spectra and want to try training your own model from scratch, you can run:
@@ -238,9 +290,21 @@ Note that you cannot (currently) fine-tune a model using a different amino acid 
 Hence, if you want to add new types of PTMs to Casanovo, you have to train from scratch.
 We are working on adding functionality to allow novel PTMs during fine-tuning, using the approach pioneered by [Modanovo](https://linkinghub.elsevier.com/retrieve/pii/S1535-9476(25)00600-0).
 
+
+### Advanced: Train a new model (Cascadia) 
+
+Most users of Cascadia will not need to train their own models.
+However, if you have a large collection of annotated spectra and want to try training your own model from scratch, you can run:
+
+```sh
+cascadia train --validation_peak_path validation_spectra.mzML training_spectra.mzML --annotations annotations.tsv
+```
+
+![`cascadia train --help`](images/train-help.svg)
+
 #### Lance file caching
 
-During training, Casanovo converts the input MGF files into [Lance](https://lancedb.github.io/lance/) format — a columnar binary format that enables faster data loading.
+During training, Casanovo/Cascadia converts the input MGF/mzML files into [Lance](https://lancedb.github.io/lance/) format — a columnar binary format that enables faster data loading.
 By default these Lance files are written to a temporary directory and deleted when training finishes, so MGF files are re-converted on every run.
 
 To avoid re-converting on subsequent runs, set `lance_dir` in the configuration file to a persistent directory:
@@ -249,12 +313,18 @@ To avoid re-converting on subsequent runs, set `lance_dir` in the configuration 
 lance_dir: /path/to/lance_cache
 ```
 
-Casanovo will write `train.lance` and `valid.lance` to that directory on the first run and reuse them automatically on later runs with the same data.
+Casanovo/Cascadia will write `train.lance` and `valid.lance` to that directory on the first run and reuse them automatically on later runs with the same data.
 
 You can also pass a pre-built `.lance` file directly as the training or validation input instead of an MGF file, as long as only one file is provided per split:
 
+For Casanovo: 
 ```sh
 casanovo train --validation_peak_path valid.lance train.lance
+```
+
+For Cascadia: 
+```sh
+cascadia train --validation_peak_path valid.lance train.lance
 ```
 
 #### GPU memory and gradient accumulation
