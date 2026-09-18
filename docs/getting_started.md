@@ -160,6 +160,7 @@ To evaluate the peptide predictions, ground truth peptide labels must to be prov
 Compatible MGF files are available from [MassIVE-KB](https://massive.ucsd.edu/ProteoSAFe/static/massive-kb-libraries.jsp).
 Note that the `--evaluate` flag requires that `top-match` is set to 1 in the configuration file.
 
+**Evaluation is currently not supported for Cascadia.**
 ### Database searching
 
 To perform database search using Casanovo as a score function, use the `casanovo db-search` command:
@@ -203,6 +204,7 @@ cascadia train training_spectra.mzML --annotations annotations.tsv --validation_
 Training and validation MS/MS data need to be provided as mzML files. 
 The sequence and charge annotations for the spectra must be provided in a tsv file with columns: `retention_time, precursor_mz, charge, sequence, file`. 
 The spectra will be matched to an annotation based on the  `retention_time` and `precursor_mz`, and match based on `file`.
+Annotations must also be provided for the validation spectra.
 
 ## Try Casanovo On a Small Example
 
