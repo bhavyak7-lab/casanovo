@@ -249,19 +249,6 @@ def check_dir_file_exists(
                 f"{dir} and can not be overwritten."
             )
 
-
-def is_apple_silicon() -> bool:
-    """
-    Check whether the current device is Apple Silicon.
-
-    Returns
-    -------
-    bool
-        Whether the current device is Apple Silicon.
-    """
-    return platform.system() == "Darwin" and platform.machine() == "arm64"
-
-
 def split_version(version: str) -> Tuple[str, str, str]:
     """
     Split the version into its semantic versioning components.
