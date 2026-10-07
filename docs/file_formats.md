@@ -31,10 +31,10 @@ In case the FASTA file contains amino acids that are not in Casanovo's vocabular
 
 ### Model weights
 
-In addition to MS/MS spectra, Casanovo also optionally accept a model weights (.ckpt extension) input file when running in training, sequencing, or evaluating mode.
+In addition to MS/MS spectra, Casanovo and Cascadia also optionally accept a model weights (.ckpt extension) input file when running in training, sequencing, or evaluating mode.
 These weights define the functionality of the neural network.
 
-If no input weights file is provided, Casanovo will automatically use the most recent compatible weights from the [official Casanovo GitHub repository](https://github.com/Noble-Lab/casanovo), which will be downloaded and cached locally if they are not already.
+If no input weights file is provided, Casanovo or Cascadia will automatically use the most recent compatible weights from the [official Casanovo GitHub repository](https://github.com/Noble-Lab/casanovo), which will be downloaded and cached locally if they are not already.
 Model weights are retrieved by matching the software version, which is of the form (major, minor, patch), and matching the model type (Casanovo or Cascadia).
 
 Casanovo supports models optimized for different instrument types. 
@@ -57,7 +57,7 @@ When you are ready to use Cascadia, you can input your MS/MS spectra in the mzML
 
 ## Output: Understanding the mzTab format
 
-After Casanovo processes your input file(s), it provides the results in an **[mzTab](https://doi.org/10.1074/mcp.O113.036681)** file.
+Casanovo and Cascadia provide results in an **[mzTab](https://doi.org/10.1074/mcp.O113.036681)** file.
 This file is divided into two main sections:
 
 1. **Metadata section**: This part describes general information about the file and the task that was performed.
