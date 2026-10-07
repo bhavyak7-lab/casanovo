@@ -1333,11 +1333,11 @@ class AugmentedSpec2Pep(Spec2Pep):
             peak_encoder=AugmentedPeakEncoder(dim_model),
         )
 
-        self.frag_layer = torch.nn.Linear(
-            dim_model, 2
-        )  # 2 classes for ion or not and then dimensions of encoding, dim_model
+        self.frag_layer = torch.nn.Linear(dim_model, 2)
 
-        self.CELoss = torch.nn.CrossEntropyLoss(ignore_index=0)
+        self.CELoss = torch.nn.CrossEntropyLoss(
+            ignore_index=0, train_label_smoothing=train_label_smoothing
+        )
 
         self.register_buffer(
             "frag_class_weights_tensor",
@@ -1345,7 +1345,8 @@ class AugmentedSpec2Pep(Spec2Pep):
         )
 
         self.fragCELoss = torch.nn.CrossEntropyLoss(
-            weight=self.frag_class_weights_tensor
+            weight=self.frag_class_weights_tensor,
+            train_label_smoothing=train_label_smoothing,
         )
 
         self.frag_weight = frag_weight
