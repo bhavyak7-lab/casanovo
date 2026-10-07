@@ -307,7 +307,7 @@ cascadia train --validation_peak_path validation_spectra.mzML training_spectra.m
 
 #### Lance file caching
 
-During training, Casanovo and Cascadia converts the input MGF/mzML files into [Lance](https://lancedb.github.io/lance/) format — a columnar binary format that enables faster data loading.
+During training, Casanovo and Cascadia convert the input MGF/mzML files into [Lance](https://lancedb.github.io/lance/) format — a columnar binary format that enables faster data loading.
 By default these Lance files are written to a temporary directory and deleted when training finishes, so MGF files are re-converted on every run.
 
 To avoid re-converting on subsequent runs, set `lance_dir` in the configuration file to a persistent directory:

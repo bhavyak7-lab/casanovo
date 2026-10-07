@@ -31,11 +31,11 @@ In case the FASTA file contains amino acids that are not in Casanovo's vocabular
 
 ### Model weights
 
-In addition to MS/MS spectra, Casanovo and Cascadia also optionally accepts a model weights (.ckpt extension) input file when running in training, sequencing, or evaluating mode.
+In addition to MS/MS spectra, Casanovo also optionally accept a model weights (.ckpt extension) input file when running in training, sequencing, or evaluating mode.
 These weights define the functionality of the neural network.
 
-If no input weights file is provided, Casanovo or Cascadia will automatically use the most recent compatible weights from the [official Casanovo GitHub repository](https://github.com/Noble-Lab/casanovo), which will be downloaded and cached locally if they are not already.
-Model weights are retrieved by matching sofrware version, which is of the form (major, minor, patch), and matching the model type (Casanovo or Cascadia).
+If no input weights file is provided, Casanovo will automatically use the most recent compatible weights from the [official Casanovo GitHub repository](https://github.com/Noble-Lab/casanovo), which will be downloaded and cached locally if they are not already.
+Model weights are retrieved by matching the software version, which is of the form (major, minor, patch), and matching the model type (Casanovo or Cascadia).
 
 Casanovo supports models optimized for different instrument types. 
 The default model is ``orbitrap``, and other models can be specified with ``--model timstof`` (only other model currently supported). 
@@ -57,7 +57,7 @@ When you are ready to use Cascadia, you can input your MS/MS spectra in the mzML
 
 ## Output: Understanding the mzTab format
 
-After Casanovo or Cascadia processes your input file(s), it provides the results in an **[mzTab](https://doi.org/10.1074/mcp.O113.036681)** file.
+After Casanovo processes your input file(s), it provides the results in an **[mzTab](https://doi.org/10.1074/mcp.O113.036681)** file.
 This file is divided into two main sections:
 
 1. **Metadata section**: This part describes general information about the file and the task that was performed.
@@ -223,7 +223,7 @@ This column consists of two parts: the run index and the spectrum reference, sep
 Be mindful of the input peak file format when linking Casanovo or Cascadia PSMs to their input spectra.
 Even when the same raw file is converted to both mzML and MGF, scan numbers in the mzML file will generally not match spectrum indices in the MGF file, as the former contains both MS and MS/MS spectra while the latter only contains MS/MS spectra.
 ```
-When processing MGF files that contain instrument-assigned scan numbers in a `SCANS`, `SCAN`, or `SCAN ID` header field, Casanovo or Cascadia will additionally export an optional `opt_global_cv_MS:1003057_scan_number` column in the PSM section.
+When processing MGF files that contain instrument-assigned scan numbers in a `SCANS`, `SCAN`, or `SCAN ID` header field, Casanovo will additionally export an optional `opt_global_cv_MS:1003057_scan_number` column in the PSM section.
 This column preserves the native scan number from the instrument and takes the form `ms_run[FILE_INDEX]:scan=SCAN_NUMBER`, for example `ms_run[1]:scan=17`.
 This column is separate from the `spectra_ref` column and does not replace the index-based spectrum reference.
 The column is global to the entire mzTab file: it is added whenever at least one MGF input file contains scan number header fields.
@@ -239,7 +239,7 @@ The PSM identifier in the `PSM_ID` column is not necessarily identical to the sp
 
 ## Model Configuration
 
-Casanovo and Cascadia operates based on settings defined in a [YAML configuration file](https://github.com/Noble-Lab/casanovo/blob/main/casanovo/config.yaml).
+Casanovo and Cascadia operate based on settings defined in a [YAML configuration file](https://github.com/Noble-Lab/casanovo/blob/main/casanovo/config.yaml).
 This file contains several options that affect how the software processes your data and predicts peptide sequences.
 If you run Casanovo without specifying a configuration file, it uses a set of default settings.
 However, you might want to adjust these settings for several reasons, such as to capture specific characteristics of your data or to experiment with different training configurations.
@@ -279,7 +279,7 @@ Log files detail every step Casanovo or Cascadia takes, including:
 ```{tip}
 Tips for using log files:
 - Bug reporting: When encountering issues, including the relevant log file in your bug report can significantly aid in diagnosing the problem.
-- Performance monitoring: Log files can be used to monitor the efficiency of Casanovo or Cascadia's operation over time, identifying potential bottlenecks.
+- Performance monitoring: Log files can be used to monitor the efficiency of Casanovo's operation over time, identifying potential bottlenecks.
 ```
 
 ## For Advanced Users: Training Casanovo
