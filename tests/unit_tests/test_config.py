@@ -14,6 +14,10 @@ def test_config_resolution(caplog):
     key = next(iter(config._canonical_configs))
     assert config._resolve_config(key) == config._canonical_configs[key]
 
+    assert config._resolve_config("timstof") == (
+        config._config_dir / "config_timstof.yaml"
+    )
+
 
 def test_default():
     """Test that loading the default works"""
