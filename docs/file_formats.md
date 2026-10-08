@@ -254,7 +254,7 @@ You can then edit this file to adjust various settings.
 After editing, specify your custom configuration file when running with the `--config` option.
 
 The configuration file is divided into sections, each containing options that are relevant to different phases of Casanovo or Cascadia's operation.
-The first section contains options usedduring *de novo* peptide sequencing, followed by options in the second section that can only be modified when training a new model.
+The first section contains options used during *de novo* peptide sequencing, followed by options in the second section that can only be modified when training a new model.
 For example, the `top_match` option in the first section makes it possible to flexibly report multiple PSMs per spectrum during _de novo_ peptide sequencing.
 In contrast, setting a different value for the `n_peaks` option in the second section is only possible when training a new model, and cannot be modified when predicting with a previously trained model that uses a different configuration.
 
